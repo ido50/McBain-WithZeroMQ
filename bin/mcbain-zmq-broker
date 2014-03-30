@@ -1,8 +1,5 @@
 #!/usr/bin/perl
 
-our $VERSION = "1.000000";
-$VERSION = eval $VERSION;
-
 =pod
 
 Simple request-reply broker
@@ -34,7 +31,6 @@ my @poll = (
 		callback => sub {
 			while (1) {
 				# Process all parts of the message
-				say "Handling message";
 				my $message = zmq_recvmsg($frontend);
 				my $more = zmq_getsockopt($frontend, ZMQ_RCVMORE);
 				zmq_sendmsg($backend, $message, $more ? ZMQ_SNDMORE : 0);
@@ -47,7 +43,6 @@ my @poll = (
 		callback => sub {
 			while (1) {
 				# Process all parts of the message
-				say "Sending message";
 				my $message = zmq_recvmsg($backend);
 				my $more = zmq_getsockopt($backend, ZMQ_RCVMORE);
 				zmq_sendmsg($frontend, $message, $more ? ZMQ_SNDMORE : 0);

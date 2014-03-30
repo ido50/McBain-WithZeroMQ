@@ -20,11 +20,13 @@ DESCRIPTION
     making it easy to consume your APIs with ZMQ REQ clients. The generated
     worker code is based on the request-reply worker example
     <http://zguide.zeromq.org/pl:rrworker> in the ZeroMQ guide
-    <http://zguide.zeromq.org/page:all>. Note that a broker must also be
-    created. A working example for a broker can also be found in the ZeroMQ
-    guide <http://zguide.zeromq.org/pl:rrbroker>. It is also provided with
-    this module, see mcbain-zmq-broker. Also check out the client example
-    <http://zguide.zeromq.org/pl:rrclient> in the guide.
+    <http://zguide.zeromq.org/page:all>. Note that the ZeroMQ request-reply
+    pattern requires a broker. The guide also has examples for a broker
+    <http://zguide.zeromq.org/pl:rrbroker> and a client
+    <http://zguide.zeromq.org/pl:rrclient>, though two scripts based on
+    these examples are also provided with this module - more for example
+    than actual usage - see mcbain-zmq-broker and mcbain-zmq-client,
+    respectively.
 
     The workers created by this module receive payloads in JSON format, and
     convert them into the hash-refs your API's methods expect to receive.

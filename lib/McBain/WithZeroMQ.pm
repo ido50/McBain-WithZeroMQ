@@ -10,12 +10,12 @@ use Carp;
 use JSON;
 use ZMQ::LibZMQ3;
 use ZMQ::Constants qw(ZMQ_REP);
-use zhelpers;
 
 our $VERSION = "1.000000";
 $VERSION = eval $VERSION;
 
 my $json = JSON->new->utf8->convert_blessed;
+my $MAX_MSGLEN = 255;
 
 =head1 NAME
  
@@ -40,9 +40,11 @@ McBain::WithZeroMQ - Load a McBain API as a ZeroMQ service
 
 C<McBain::WithZeroMQ> turns your L<McBain> API into a L<ZeroMQ REP worker|ZMQ::LibZMQ3>,
 making it easy to consume your APIs with ZMQ REQ clients. The generated worker code is based
-on the L<request-reply worker example|http://zguide.zeromq.org/pl:rrworker> in the L<ZeroMQ guide|http://zguide.zeromq.org/page:all>. Note that a broker must also be created. A working example for a broker can also be found L<in the ZeroMQ guide|http://zguide.zeromq.org/pl:rrbroker>. It
-is also provided with this module, see L<mcbain-zmq-broker>. Also check out the
-L<client example|http://zguide.zeromq.org/pl:rrclient> in the guide.
+on the L<request-reply worker example|http://zguide.zeromq.org/pl:rrworker> in the L<ZeroMQ guide|http://zguide.zeromq.org/page:all>. Note that the ZeroMQ request-reply pattern requires
+a broker. The guide also has examples for L<a broker|http://zguide.zeromq.org/pl:rrbroker>
+and L<a client|http://zguide.zeromq.org/pl:rrclient>, though two scripts based on these examples
+are also provided with this module - more for example than actual usage - see L<mcbain-zmq-broker>
+and L<mcbain-zmq-client>, respectively.
 
 The workers created by this module receive payloads in JSON format, and convert them into the 
 hash-refs your API's methods expect to receive. The payload must have a C<path> key, which holds
@@ -92,13 +94,15 @@ sub init {
 
 			while (1) {
 				# Wait for next request from client
-				my $payload = s_recv($responder);
+				my $size = zmq_recv($responder, my $buf, $MAX_MSGLEN);
+				return undef if $size < 0;
+				my $payload = substr($buf, 0, $size);
 
 				# Process the request
 				my $res = $pkg->call($payload);
 
 				# Send reply back to client
-				s_send($responder, $res);
+				zmq_send($responder, $res, -1);
 			}
 		};
 	}
