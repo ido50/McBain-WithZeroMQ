@@ -31,20 +31,21 @@ DESCRIPTION
     The workers created by this module receive payloads in JSON format, and
     convert them into the hash-refs your API's methods expect to receive.
     The payload must have a "path" key, which holds the complete path of the
-    route/method to invoke (for example, "GET:/status"). Results are sent
+    route/method to invoke (for example, "GET:/math/sum"). Results are sent
     back to the clients in JSON as well. Note that if an API method does not
     return a hash-ref, this runner module will automatically turn it into a
     hash-ref to ensure that conversion into JSON will be possible. The
     created hash-ref will have one key - holding the method's name, with
     whatever was returned from the method as its value. For example, if
     method "GET:/divide" in topic "/math" returns an integer (say 7), then
-    the client will get the JSON "{ "GET:/math/divide": 7 }".
+    the client will get the JSON "{ "GET:/math/divide": 7 }". To avoid, make
+    sure your API's methods return hash-refs.
 
 METHODS EXPORTED TO YOUR API
   work( [ $host, $port ] )
     Connects the ZeroMQ worker created by the module to the ZeroMQ broker
-    running at the host and port provided. If none are provided, "localhost"
-    and 5560 are used, respectively.
+    listening at the host and port provided. If none are provided,
+    "localhost" and 5560 are used, respectively.
 
     The method never returns, so that the worker listens for jobs
     continuously.
@@ -117,6 +118,9 @@ SUPPORT
 
 AUTHOR
     Ido Perlmuter <ido@ido50.net>
+
+SEE ALSO
+    McBain
 
 LICENSE AND COPYRIGHT
     Copyright (c) 2014, Ido Perlmuter "ido@ido50.net".
