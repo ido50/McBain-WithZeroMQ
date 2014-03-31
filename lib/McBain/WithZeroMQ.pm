@@ -48,19 +48,20 @@ and L<mcbain-zmq-client>, respectively.
 
 The workers created by this module receive payloads in JSON format, and convert them into the 
 hash-refs your API's methods expect to receive. The payload must have a C<path> key, which holds
-the complete path of the route/method to invoke (for example, C<GET:/status>). Results are sent
+the complete path of the route/method to invoke (for example, C<GET:/math/sum>). Results are sent
 back to the clients in JSON as well. Note that if an API method does not return a hash-ref, this runner
 module will automatically turn it into a hash-ref to ensure that conversion into JSON will
 be possible. The created hash-ref will have one key - holding the method's name, with whatever
 was returned from the method as its value. For example, if method C<GET:/divide> in topic
 C</math> returns an integer (say 7), then the client will get the JSON C<{ "GET:/math/divide": 7 }>.
+To avoid, make sure your API's methods return hash-refs.
 
 =head1 METHODS EXPORTED TO YOUR API
 
 =head2 work( [ $host, $port ] )
 
 Connects the ZeroMQ worker created by the module to the ZeroMQ broker
-running at the host and port provided. If none are provided, C<localhost>
+listening at the host and port provided. If none are provided, C<localhost>
 and C<5560> are used, respectively.
 
 The method never returns, so that the worker listens for jobs continuously.
@@ -227,7 +228,11 @@ L<http://search.cpan.org/dist/McBain-WithZeroMQ/>
 =head1 AUTHOR
  
 Ido Perlmuter <ido@ido50.net>
- 
+
+=head1 SEE ALSO
+
+L<McBain>
+
 =head1 LICENSE AND COPYRIGHT
  
 Copyright (c) 2014, Ido Perlmuter C<< ido@ido50.net >>.
