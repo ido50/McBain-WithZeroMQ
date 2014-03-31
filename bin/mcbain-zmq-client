@@ -12,7 +12,7 @@ our $MAX_MSGLEN = 255;
 
 =head1 NAME
 
-mcbain-zmq-client - example client for McBAIN APIs running with ZeroMQ
+mcbain-zmq-client - example client for McBain APIs running with ZeroMQ
 
 =head1 SYNOPSIS
 
