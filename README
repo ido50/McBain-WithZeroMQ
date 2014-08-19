@@ -7,11 +7,9 @@ SYNOPSIS
 
             #!/usr/bin/perl -w
 
-            BEGIN { $ENV{MCBAIN_WITH} = 'WithZeroMQ'; }
-
             use warnings;
             use strict;
-            use MyAPI;
+            use MyAPI -withZeroMQ;
 
             MyAPI->work('localhost', 5560);
 
@@ -70,9 +68,7 @@ METHODS REQUIRED BY MCBAIN
     client.
 
 CONFIGURATION AND ENVIRONMENT
-    No configuration files are required. To tell McBain to use this runner
-    module, the "MCBAIN_WITH" environment variable must be set to
-    "WithZeroMQ". See the "SYNOPSIS" for an example.
+    No configuration files are required.
 
 DEPENDENCIES
     "McBain::WithZeroMQ" depends on the following CPAN modules:

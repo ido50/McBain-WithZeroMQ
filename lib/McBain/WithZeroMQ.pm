@@ -11,7 +11,7 @@ use JSON;
 use ZMQ::LibZMQ3;
 use ZMQ::Constants qw(ZMQ_REP);
 
-our $VERSION = "1.000000";
+our $VERSION = "2.000000";
 $VERSION = eval $VERSION;
 
 my $json = JSON->new->utf8->convert_blessed;
@@ -28,11 +28,9 @@ McBain::WithZeroMQ - Load a McBain API as a ZeroMQ service
 
 	#!/usr/bin/perl -w
 
-	BEGIN { $ENV{MCBAIN_WITH} = 'WithZeroMQ'; }
-
 	use warnings;
 	use strict;
-	use MyAPI;
+	use MyAPI -withZeroMQ;
 
 	MyAPI->work('localhost', 5560);
 
@@ -167,9 +165,7 @@ sub handle_exception {
 
 =head1 CONFIGURATION AND ENVIRONMENT
    
-No configuration files are required. To tell L<McBain> to use this runner module,
-the C<MCBAIN_WITH> environment variable must be set to C<WithZeroMQ>. See the
-L</"SYNOPSIS"> for an example.
+No configuration files are required.
  
 =head1 DEPENDENCIES
  
