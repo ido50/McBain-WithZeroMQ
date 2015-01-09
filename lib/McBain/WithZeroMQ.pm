@@ -7,15 +7,15 @@ use strict;
 use 5.10.0;
 
 use Carp;
-use JSON;
-use ZMQ::LibZMQ3;
-use ZMQ::Constants qw(ZMQ_REP);
+use JSON::MaybeXS qw/JSON/;
+use Try::Tiny;
+use ZMQ::FFI;
+use ZMQ::FFI::Constants qw/ZMQ_REP/;
 
-our $VERSION = "2.000000";
+our $VERSION = "3.000000";
 $VERSION = eval $VERSION;
 
-my $json = JSON->new->utf8->convert_blessed;
-my $MAX_MSGLEN = 255;
+my $json = JSON->new->utf8->allow_blessed->convert_blessed;
 
 =head1 NAME
  
@@ -30,9 +30,13 @@ McBain::WithZeroMQ - Load a McBain API as a ZeroMQ service
 
 	use warnings;
 	use strict;
-	use MyAPI -withZeroMQ;
+	use MyAPI;
+	use McBain::WithZeroMQ;
 
-	MyAPI->work('localhost', 5560);
+	my $api = MyAPI->new;
+	my $worker = McBain::WithZeroMQ->new($api);
+
+	$worker->work('localhost', 5560);
 
 =head1 DESCRIPTION
 
@@ -54,7 +58,7 @@ was returned from the method as its value. For example, if method C<GET:/divide>
 C</math> returns an integer (say 7), then the client will get the JSON C<{ "GET:/math/divide": 7 }>.
 To avoid, make sure your API's methods return hash-refs.
 
-=head1 METHODS EXPORTED TO YOUR API
+=head1 METHODS
 
 =head2 work( [ $host, $port ] )
 
@@ -64,103 +68,48 @@ and C<5560> are used, respectively.
 
 The method never returns, so that the worker listens for jobs continuously.
 
-=head1 METHODS REQUIRED BY MCBAIN
-
-This runner module implements the following methods required by C<McBain>:
-
-=head2 init( )
-
-Creates the L</"work( $host, $port )"> method for the root topic of the API.
-
 =cut
 
-sub init {
-	my ($class, $target) = @_;
+sub new {
+	my ($class, $api) = @_;
 
-	if ($target->is_root) {
-		no strict 'refs';
-		*{"${target}::work"} = sub {
-			my ($pkg, $host, $port) = @_;
+	bless { api => $api }, $class;
+}
 
-			$host ||= 'localhost';
-			$port ||= 5560;
+sub work {
+	my ($self, $host, $port) = @_;
 
-			my $context = zmq_init();
+	$host ||= '127.0.0.1';
+	$port ||= 5560;
 
-			# Socket to talk to clients
-			my $responder = zmq_socket($context, ZMQ_REP);
-			zmq_connect($responder, "tcp://${host}:${port}");
+	my $context = ZMQ::FFI->new;
 
-			while (1) {
-				# Wait for next request from client
-				my $size = zmq_recv($responder, my $buf, $MAX_MSGLEN);
-				return undef if $size < 0;
-				my $payload = substr($buf, 0, $size);
+	# Socket to talk to clients
+	my $responder = $context->socket(ZMQ_REP);
+	$responder->bind("tcp://${host}:${port}");
 
-				# Process the request
-				my $res = $pkg->call($payload);
+	while (1) {
+		try {
+			# Wait for next request from client
+			my $message = $responder->recv;
+			print STDERR "WORKER RECEIVED $message\n";
+			my $payload = $json->decode($message);
 
-				# Send reply back to client
-				zmq_send($responder, $res, -1);
-			}
+			my $path = delete($payload->{path})
+				|| confess { code => 400, error => "Payload does not define path to invoke" };
+
+			my $res = $self->{api}->call($path, $payload, __PACKAGE__);
+			$res = { $path => $res }
+				unless ref $res eq 'HASH';
+
+			$responder->send($json->encode($res));
+		} catch {
+			$_ = { error => $_ }
+				unless ref $_;
+
+			$responder->send($json->encode($_));
 		};
 	}
-}
-
-=head2 generate_env( $job )
-
-Receives the JSON payload and generates C<McBain>'s standard env
-hash-ref from it.
-
-=cut
-
-sub generate_env {
-	my ($self, $payload) = @_;
-
-	$payload = $json->decode($payload);
-
-	confess { code => 400, error => "Payload does not define path to invoke" }
-		unless $payload->{path};
-
-	confess { code => 400, error => "Namespace must match <METHOD>:<ROUTE> where METHOD is one of GET, POST, PUT, DELETE or OPTIONS" }
-		unless $payload->{path} =~ m/^(GET|POST|PUT|DELETE|OPTIONS):[^:]+$/;
-
-	my ($method, $route) = split(/:/, delete($payload->{path}));
-
-	return {
-		METHOD	=> $method,
-		ROUTE		=> $route,
-		PAYLOAD	=> $payload
-	};
-}
-
-=head2 generate_res( $env, $res )
-
-Converts the result from an API method in JSON. Read the discussion under
-L</"DESCRIPTION"> for more info.
-
-=cut
-
-sub generate_res {
-	my ($self, $env, $res) = @_;
-
-	$res = { $env->{METHOD}.':'.$env->{ROUTE} => $res }
-		unless ref $res eq 'HASH';
-
-	return encode_json($res);
-}
-
-=head2 handle_exception( $err )
-
-Simply calls C<< $job->send_fail >> to return a job failed
-status to the client.
-
-=cut
-
-sub handle_exception {
-	my ($class, $err) = @_;
-
-	return $json->encode($err);
 }
 
 =head1 CONFIGURATION AND ENVIRONMENT
@@ -174,12 +123,12 @@ C<McBain::WithZeroMQ> depends on the following CPAN modules:
 =over
 
 =item * L<Carp>
+
+=item * L<JSON::MaybeXS
+
+=item * L<Try::Tiny>
  
-=item * L<ZMQ::Constants>
-
-=item * L<ZMQ::LibZMQ3>
-
-=item * L<JSON>
+=item * L<ZMQ::FFI>
  
 =back
 
@@ -231,7 +180,7 @@ L<McBain>
 
 =head1 LICENSE AND COPYRIGHT
  
-Copyright (c) 2014, Ido Perlmuter C<< ido@ido50.net >>.
+Copyright (c) 2014-2015, Ido Perlmuter C<< ido@ido50.net >>.
  
 This module is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself, either version
