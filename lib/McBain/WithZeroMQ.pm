@@ -4,13 +4,11 @@ package McBain::WithZeroMQ;
 
 use warnings;
 use strict;
-use 5.10.0;
+use base 'Net::Server::ZMQ';
 
 use Carp;
 use JSON::MaybeXS qw/JSON/;
 use Try::Tiny;
-use ZMQ::FFI;
-use ZMQ::FFI::Constants qw/ZMQ_REP/;
 
 our $VERSION = "3.000000";
 $VERSION = eval $VERSION;
@@ -26,7 +24,7 @@ McBain::WithZeroMQ - Load a McBain API as a ZeroMQ service
 	# write your API as you normally would, and create
 	# a simple start-up script:
 
-	#!/usr/bin/perl -w
+	#!/usr/bin/perl
 
 	use warnings;
 	use strict;
@@ -70,46 +68,46 @@ The method never returns, so that the worker listens for jobs continuously.
 
 =cut
 
-sub new {
-	my ($class, $api) = @_;
+sub options {
+	my $self = shift;
+	my $ref  = $self->SUPER::options(@_);
+	my $prop = $self->{server};
 
-	bless { api => $api }, $class;
+	$ref->{api} = \$prop->{api};
+
+	return $ref;
 }
 
-sub work {
-	my ($self, $host, $port) = @_;
+sub process_request {
+	my $self = shift;
+	my $prop = $self->{server};
 
-	$host ||= '127.0.0.1';
-	$port ||= 5560;
+	my $ret = try {
+		# Wait for next request from client
+		my $payload = $json->decode($prop->{payload});
 
-	my $context = ZMQ::FFI->new;
+		my $path = delete($payload->{path})
+			|| confess { code => 400, error => "Payload does not define path to invoke" };
 
-	# Socket to talk to clients
-	my $responder = $context->socket(ZMQ_REP);
-	$responder->bind("tcp://${host}:${port}");
+		my $ret = $prop->{api}->call($path, $payload, __PACKAGE__);
 
-	while (1) {
-		try {
-			# Wait for next request from client
-			my $message = $responder->recv;
-			print STDERR "WORKER RECEIVED $message\n";
-			my $payload = $json->decode($message);
+		$ret = { $path => $ret }
+			unless ref $ret eq 'HASH';
 
-			my $path = delete($payload->{path})
-				|| confess { code => 400, error => "Payload does not define path to invoke" };
+		return $ret;
+	} catch {
+		$_ = { error => $_ }
+			unless ref $_;
 
-			my $res = $self->{api}->call($path, $payload, __PACKAGE__);
-			$res = { $path => $res }
-				unless ref $res eq 'HASH';
+		return $_;
+	};
 
-			$responder->send($json->encode($res));
-		} catch {
-			$_ = { error => $_ }
-				unless ref $_;
-
-			$responder->send($json->encode($_));
-		};
-	}
+	$prop->{client}->send_multipart([
+		'',
+		$prop->{peername},
+		'',
+		$json->encode($ret)
+	]);
 }
 
 =head1 CONFIGURATION AND ENVIRONMENT
@@ -124,11 +122,11 @@ C<McBain::WithZeroMQ> depends on the following CPAN modules:
 
 =item * L<Carp>
 
-=item * L<JSON::MaybeXS
+=item * L<JSON::MaybeXS>
+
+=item * L<Net::Server::ZMQ>
 
 =item * L<Try::Tiny>
- 
-=item * L<ZMQ::FFI>
  
 =back
 
